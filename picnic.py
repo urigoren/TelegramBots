@@ -2,6 +2,7 @@ import sys,os,json
 import telepot
 from telepot.delegate import per_chat_id, create_open
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
+from nltk.corpus import wordnet as wn
 
 with open('picnic.token','r') as f:
     TOKEN = f.readlines()[0].strip()
@@ -60,15 +61,25 @@ class PicnicBot(telepot.helper.ChatHandler):
             item_keyboard=[[KeyboardButton(text='/{r} {i}'.format(r=refer_to_command,i=item)) for item in self.groceries.keys()]]
         self.sender.sendMessage(txt, reply_markup=ReplyKeyboardMarkup( keyboard=item_keyboard,one_time_keyboard=True  ))
 
-    def add(self,sender,content):
-        if content=='':
-            return 'Usage example:\n /add salad \n /add beer 6'
+    def parse_as_item_count(self,content):
         try:
-            item,count = content.split(' ',1)
-            count = int(count)
+            msg = content.split(' ',1)
+            if msg[0].isdigit():
+                count = int(msg[0])
+                item = wn.morphy(msg[1],wn.NOUN) or msg[1]
+            else:
+                count = int(msg[1])
+                item = wn.morphy(msg[0],wn.NOUN) or msg[0]
+
         except:
             item = content
             count = 1
+        return str(item),count
+
+    def add(self,sender,content):
+        if content=='':
+            return 'Usage example:\n /add salad \n /add beer 6'
+        item,count = self.parse_as_item_count(content)
         self.groceries[item] = {'total': count}
 
     def remove(self,sender,content):
@@ -84,17 +95,12 @@ class PicnicBot(telepot.helper.ChatHandler):
         if content=='':
             self.choose_items('Bring what ?','bring',[1,2])
             return None
-        try:
-            item,count = content.split(' ',1)
-            count = int(count)
-        except:
-            item = content
-            count = 1
+        item,count = self.parse_as_item_count(content)
         try:
             if sender in self.groceries[item].keys():
-                self.groceries[item][sender]+=count
+                self.groceries[item][sender] += count
             else:
-                self.groceries[item][sender]=count
+                self.groceries[item][sender] = count
             return self.sender2name[sender]+' is bringing {c} {i}'.format(c=self.groceries[item][sender],i=item)
         except:
             return
@@ -144,7 +150,7 @@ class PicnicBot(telepot.helper.ChatHandler):
 
 
 bot = telepot.DelegatorBot(TOKEN, [
-    (per_chat_id(), create_open(PicnicBot, timeout=1000)),
+    (per_chat_id(), create_open(PicnicBot, timeout=300)),
 ])
 bot.setWebhook()
 bot.message_loop(run_forever='Listening ...')
