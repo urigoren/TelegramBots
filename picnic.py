@@ -1,4 +1,4 @@
-import sys
+import sys,os,json
 import telepot
 from telepot.delegate import per_chat_id, create_open
 from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
@@ -14,12 +14,26 @@ class PicnicBot(telepot.helper.ChatHandler):
         self.groceries={}
         self.sender2name={}
 
+    def __del__(self):
+        if self.group<=0:
+            return
+        with open('picnic_{g}.json'.format(g=self.group),'w') as f:
+            ser={'group':self.group,'groceries':self.groceries,'sender2name':self.sender2name}
+            json.dump(ser,f)
+
     def on_chat_message(self, msg):
         response = None
         if msg['chat']['type']!='group':
             self.sender.sendMessage('This is a group bot')
             return
-        self.group = msg['chat']['id']
+        if self.group<=0:
+            self.group = msg['chat']['id']
+            fname='picnic_{g}.json'.format(g=self.group)
+            if os.path.isfile(fname):
+                with open(fname,'r') as f:
+                    ser=json.load(f)
+                self.groceries=ser['groceries']
+                self.sender2name=ser['sender2name']
         sender = msg['from']['id']
         self.sender2name[sender]= msg['from']['first_name']+' '+msg['from']['last_name']
         if msg['text'].find('/') > -1:
@@ -81,7 +95,7 @@ class PicnicBot(telepot.helper.ChatHandler):
                 self.groceries[item][sender]+=count
             else:
                 self.groceries[item][sender]=count
-            return self.sender2name[sender]+' is bringing {c} {i}'.format(c=count,i=item)
+            return self.sender2name[sender]+' is bringing {c} {i}'.format(c=self.groceries[item][sender],i=item)
         except:
             return
 
