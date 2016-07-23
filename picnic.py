@@ -15,7 +15,8 @@ class PicnicBot(telepot.helper.ChatHandler):
         self.groceries={}
         self.sender2name={}
 
-    def __del__(self):
+    def on_close(self,exception):
+        super(PicnicBot, self).on_close(exception)
         if self.group<=0:
             return
         with open('picnic_{g}.json'.format(g=self.group),'w') as f:
@@ -37,6 +38,8 @@ class PicnicBot(telepot.helper.ChatHandler):
                 self.sender2name=ser['sender2name']
         sender = msg['from']['id']
         self.sender2name[sender]= msg['from']['first_name']+' '+msg['from']['last_name']
+        if not 'text' in msg.keys():
+            return
         if msg['text'].find('/') > -1:
             if msg['text'].find(' ')>-1:
                 name,param = msg['text'].split(' ',1)
