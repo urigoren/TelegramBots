@@ -59,7 +59,7 @@ class PicnicBot(telepot.helper.ChatHandler):
             self.sender.sendMessage(response)
     def choose_items(self,txt,refer_to_command,counts=None):
         if counts:
-            item_keyboard=[[KeyboardButton(text='/{r} {i} {c}'.format(r=refer_to_command,i=item,c=c)) for item in self.groceries.keys()] for c in counts]
+            item_keyboard=[[KeyboardButton(text='/{r} {c} {i}'.format(r=refer_to_command,i=item,c=c)) for item in self.groceries.keys()] for c in counts]
         else:
             item_keyboard=[[KeyboardButton(text='/{r} {i}'.format(r=refer_to_command,i=item)) for item in self.groceries.keys()]]
         self.sender.sendMessage(txt, reply_markup=ReplyKeyboardMarkup( keyboard=item_keyboard,one_time_keyboard=True  ))
@@ -81,7 +81,7 @@ class PicnicBot(telepot.helper.ChatHandler):
 
     def add(self,sender,content):
         if content=='':
-            return 'Usage example:\n /add salad \n /add beer 6'
+            return 'Usage example:\n /add salad \n /add 6 beers'
         item,count = self.parse_as_item_count(content)
         self.groceries[item] = {'total': count}
 
