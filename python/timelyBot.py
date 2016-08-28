@@ -45,8 +45,22 @@ class TimelyBot:
 
     def processMessage(self, state, message):
         """handles question-answer queries"""
-        raise SyntaxWarning('processMessage is not implemented')
-        return None
+        if message.find('/') > -1:
+            if message.find(' ') > -1:
+                name, param = message.split(' ', 1)
+            else:
+                name = 'defaultCommand'
+                param = message
+            if name.find('@') > -1:
+                name = name[:name.find('@')]
+            name = name.replace('/', '').lower() + 'Command'
+            print ('Calling {n} with {p}'.format(n=name, p=param))
+            commandFunction = getattr(self, name, None)
+            if commandFunction is not None:
+                state = commandFunction(state, param.strip())
+            return state
+        else:
+            self.defaultCommand(state,message)
 
     def processTime(self, state, epoch):
         """handles time depended queries"""
@@ -74,6 +88,8 @@ class TimelyBot:
             if chat_id == 'last_read':
                 continue
             self.handleOutgoing(chat_id, self.processTime(self.state[chat_id], self.now()))
+            if self.state[chat_id] == {}:
+                del self.state[chat_id]
         # iterate incoming messages
         incoming = sorted(
             [(u['update_id'], u['message']['chat']['id'], u['message']['text']) for u in self.getUpdates()])

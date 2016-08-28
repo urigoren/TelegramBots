@@ -3,14 +3,17 @@ from timelyBot import TimelyBot
 
 
 class ReminderBot(TimelyBot):
-    def processMessage(self, state, message):
-        if message.startswith('+'):
-            ts, data = message[1:].split(' ', 1)
-            ts=int(ts)
-            if not ts in state.keys():
-                state[ts] = []
-            state[ts].append(data)
-            return state
+    def defaultCommand(self, state, message):
+        state['outgoing']=[message]
+        return state
+
+    def remindinCommand(self, state, message):
+        ts, data = message.split(' ', 1)
+        ts=int(ts)+self.now()
+        if not ts in state.keys():
+            state[ts] = []
+        state[ts].append(data)
+        return state
 
     def processTime(self, state, epoch):
         ret = state
