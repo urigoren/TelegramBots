@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import json
 import requests
@@ -27,9 +28,13 @@ class TimelyBot:
             return json.loads(r.text)['result']
         return []
 
-    def sendMessage(self, chat_id, message, keyboard=None):
+    def sendMessage(self, chat_id, message):
         """telegram api sendMessage"""
         message_url = 'https://api.telegram.org/bot' + self.token + '/sendMessage'
+        if type(message) == tuple:
+            message, keyboard = message
+        else:
+            keyboard = None
         response = {'chat_id': chat_id, 'text': message}
         if type(keyboard) == list:
             if type(keyboard[0]) != list:
@@ -38,26 +43,44 @@ class TimelyBot:
         r = requests.post(message_url, data=response)
         return json.loads(r.text)
 
-    def processMessage(self, chat_id, message):
+    def processMessage(self, state, message):
         """handles question-answer queries"""
         raise SyntaxWarning('processMessage is not implemented')
         return None
 
-    def processTime(self, epoch):
+    def processTime(self, state, epoch):
         """handles time depended queries"""
         raise SyntaxWarning('processTime is not implemented')
         return None
 
+    def now(self):
+        return int(time.time())
+
+    def handleOutgoing(self, chat_id, new_state):
+        if type(new_state) == dict:
+            self.state[chat_id] = new_state
+        elif new_state:
+            self.state[chat_id]['outgoing'] = new_state
+        if 'outgoing' in self.state[chat_id].keys():
+            if type(self.state[chat_id]['outgoing']) != list:
+                self.state[chat_id]['outgoing'] = [self.state[chat_id]['outgoing']]
+            for msg in self.state[chat_id]['outgoing']:
+                self.sendMessage(chat_id, msg)
+            del self.state[chat_id]['outgoing']
+
     def runOnce(self):
-        self.processTime(int(time.time()))
+        # iterate acive chats
+        for chat_id in self.state.keys():
+            if chat_id == 'last_read':
+                continue
+            self.handleOutgoing(chat_id, self.processTime(self.state[chat_id], self.now()))
+        # iterate incoming messages
         incoming = sorted(
             [(u['update_id'], u['message']['chat']['id'], u['message']['text']) for u in self.getUpdates()])
         for update_id, chat_id, message in incoming:
-            answer = self.processMessage(chat_id, message)
-            if type(answer) == str:
-                self.sendMessage(chat_id, answer)
-            elif type(answer) == tuple:
-                self.sendMessage(chat_id, answer[0], answer[1])
+            if not chat_id in self.state.keys():
+                self.state[chat_id] = dict()
+            self.handleOutgoing(chat_id, self.processMessage(self.state[chat_id], message))
             self.state['last_read'] = update_id
 
     def runEvery(self, interval):
