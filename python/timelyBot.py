@@ -1,29 +1,41 @@
 # -*- coding: utf-8 -*-
-import sys
 import json
-import requests
 import os
+import sys
 import time
+
+import requests
 
 
 class TimelyBot:
     def __init__(self, token, state_file):
         self.token = token
         self.state_file = state_file
-        if os.path.isfile(state_file):
-            with open(state_file, 'r') as f:
-                self.state = json.load(f)
-        else:
-            self.state = {'last_read': 0}
+        self.state = {}
+        self.load()
 
     def __del__(self):
+        self.save()
+
+    def load(self):
+        print ('saving state')
+        if os.path.isfile(self.state_file):
+            with open(self.state_file, 'r') as f:
+                self.state = json.load(f)
+        else:
+            self.state = {'meta': {'last_read': 0}}
+        print (self.state)
+
+    def save(self):
+        print ('saving state')
+        print (self.state)
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f)
 
     def getUpdates(self):
         """telegram api getUpdates"""
         updates_url = 'https://api.telegram.org/bot' + self.token + '/getUpdates'
-        r = requests.post(updates_url, data={'offset': self.state['last_read'] + 1})
+        r = requests.post(updates_url, data={'offset': self.state['meta']['last_read'] + 1})
         if r.status_code == 200:
             return json.loads(r.text)['result']
         return []
@@ -49,7 +61,7 @@ class TimelyBot:
             if message.find(' ') > -1:
                 name, param = message.split(' ', 1)
             else:
-                name = 'defaultCommand'
+                name = 'default'
                 param = message
             if name.find('@') > -1:
                 name = name[:name.find('@')]
@@ -57,10 +69,11 @@ class TimelyBot:
             print ('Calling {n} with {p}'.format(n=name, p=param))
             commandFunction = getattr(self, name, None)
             if commandFunction is not None:
+                print state
                 state = commandFunction(state, param.strip())
             return state
         else:
-            self.defaultCommand(state,message)
+            self.defaultCommand(state, message)
 
     def processTime(self, state, epoch):
         """handles time depended queries"""
@@ -85,7 +98,7 @@ class TimelyBot:
     def runOnce(self):
         # iterate acive chats
         for chat_id in self.state.keys():
-            if chat_id == 'last_read':
+            if chat_id == 'meta':
                 continue
             self.handleOutgoing(chat_id, self.processTime(self.state[chat_id], self.now()))
             if self.state[chat_id] == {}:
@@ -97,7 +110,7 @@ class TimelyBot:
             if not chat_id in self.state.keys():
                 self.state[chat_id] = dict()
             self.handleOutgoing(chat_id, self.processMessage(self.state[chat_id], message))
-            self.state['last_read'] = update_id
+            self.state['meta']['last_read'] = update_id
 
     def runEvery(self, interval):
         while True:
